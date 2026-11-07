@@ -1,10 +1,32 @@
 name: Achievement Farm
 
+# Auto-unlock "self-earnable" GitHub achievements (Pull Shark / YOLO / Quickdraw /
+# Open Sourcerer) by performing REAL GitHub actions via GitHub Actions.
+#
+# IMPORTANT: this workflow is driven by a PERSONAL ACCESS TOKEN (PAT), not the
+# default GITHUB_TOKEN. Achievements are credited to the *user* who owns the PAT,
+# and only a user token (not the bot token) counts toward Pull Shark / YOLO /
+# Quickdraw. The committer identity, target repo and default branch are resolved
+# automatically from the PAT owner, so the same file works on any fork without
+# editing.
+
 on:
   schedule:
-    - cron: '30 16 * * *'   # 00:30 Beijing time (UTC+8)
+    # 16:30 UTC == 00:30 Asia/Shanghai (UTC+8)
+    - cron: '30 16 * * *'
   workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for the manual run'
+        required: false
+        default: 'manual trigger'
 
+# Avoid two runs racing (e.g. a scheduled run overlapping a manual run).
+concurrency:
+  group: achievement-farm
+  cancel-in-progress: false
+
+# These only document intent; the real operations use secrets.PAT below.
 permissions:
   contents: write
   pull-requests: write
@@ -13,6 +35,7 @@ permissions:
 jobs:
   farm:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,28 +43,44 @@ jobs:
           token: ${{ secrets.PAT }}
           fetch-depth: 0
 
-      - name: Configure git
+      - name: Configure git (auto-detect owner from PAT)
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
         run: |
-          git config user.name "luisdingww-bit"
-          git config user.email "luisdingww-bit@users.noreply.github.com"
+          set -euo pipefail
+          LOGIN="$(gh api user --jq .login)"
+          git config user.name "$LOGIN"
+          git config user.email "$LOGIN@users.noreply.github.com"
+          git config init.defaultBranch main
+          echo "Running as @$LOGIN against ${{ github.repository }}"
 
       - name: Pull Shark + YOLO (branch -> PR -> merge without review)
         env:
           GH_TOKEN: ${{ secrets.PAT }}
         run: |
-          TS=$(date +%Y%m%d-%H%M%S)
+          set -euo pipefail
+          BASE="${{ github.event.repository.default_branch }}"
+          TS="$(date +%Y%m%d-%H%M%S)"
           BR="farm/$TS"
           git checkout -b "$BR"
           echo "$TS" > farm_log.txt
           git add farm_log.txt
           git commit -m "chore(farm): entry $TS"
           git push origin "$BR"
-          gh pr create --title "farm: $TS" --body "automated contribution" --head "$BR" --base main
+          gh pr create \
+            --title "farm: $TS" \
+            --body "Automated contribution entry $TS" \
+            --head "$BR" \
+            --base "$BASE"
           gh pr merge "$BR" --merge --delete-branch
 
-      - name: Quickdraw (open + close issue fast)
+      - name: Quickdraw (open + close an issue fast)
         env:
           GH_TOKEN: ${{ secrets.PAT }}
         run: |
-          ISSUE=$(gh issue create --title "chore: tick $(date +%s)" --body "automated" --repo luisdingww-bit/achievement-farm)
+          set -euo pipefail
+          ISSUE="$(gh issue create \
+            --title "chore: tick $(date +%s)" \
+            --body "Automated tick." \
+            --repo "${{ github.repository }}")"
           gh issue close "$ISSUE" --reason "not planned"
