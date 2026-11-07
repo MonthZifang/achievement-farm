@@ -65,7 +65,9 @@ jobs:
           git checkout -b "$BR"
           echo "$TS" > farm_log.txt
           git add farm_log.txt
-          git commit -m "chore(farm): entry $TS"
+          git commit -m "chore(farm): entry $TS
+
+Co-authored-by: 枣七月 <266425321+MoonlitHoney@users.noreply.github.com>"
           git push origin "$BR"
           gh pr create \
             --title "farm: $TS" \
