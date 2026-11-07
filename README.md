@@ -47,6 +47,8 @@
 
 > 也可在本地用 `make setup` 打印上述步骤；实际填令牌仍需在网页完成（令牌不外泄）。
 
+> **Fine-grained PAT 必看**：若用细粒度令牌，创建时要给本仓库 **Contents = Read and write**、**Pull requests = Read and write**、**Issues = Read and write** 三项写权限（仅 Read 会在 `git push` 时报 `403 Permission denied to <user>`）。权限不够时不必重发令牌，直接在令牌页 **编辑权限** 补上写权限即可，令牌值不变、secret 不用重设。
+
 ## License
 
 [MIT](LICENSE)
