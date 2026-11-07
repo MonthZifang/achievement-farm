@@ -74,13 +74,32 @@ jobs:
             --base "$BASE"
           gh pr merge "$BR" --merge --delete-branch
 
-      - name: Quickdraw (open + close an issue fast)
+      # Quickdraw + Husky + Investigatory + Bug Crusher + Super Detective:
+      # these achievements fire when YOU close an issue that carries a given
+      # label. We open a few issues, label them, then close them (not planned
+      # for the "wontfix" family, duplicate for the duplicate family) so the
+      # label-based conditions are all satisfied in one daily run.
+      - name: Quickdraw + issue-label achievements
         env:
           GH_TOKEN: ${{ secrets.PAT }}
         run: |
           set -euo pipefail
-          ISSUE="$(gh issue create \
-            --title "chore: tick $(date +%s)" \
-            --body "Automated tick." \
-            --repo "${{ github.repository }}")"
-          gh issue close "$ISSUE" --reason "not planned"
+          REPO="${{ github.repository }}"
+          now="$(date +%s)"
+          declare -A LABEL_REASON=(
+            ["bug"]="not planned"
+            ["enhancement"]="not planned"
+            ["question"]="not planned"
+            ["duplicate"]="duplicate"
+          )
+          for label in "${!LABEL_REASON[@]}"; do
+            reason="${LABEL_REASON[$label]}"
+            ISSUE="$(gh issue create \
+              --title "chore: tick $now $label" \
+              --body "Automated tick for label '$label'." \
+              --label "$label" \
+              --repo "$REPO")"
+            gh issue close "$ISSUE" --reason "$reason"
+            echo "closed $ISSUE with label $label (reason: $reason)"
+            now="$((now + 1))"
+          done
